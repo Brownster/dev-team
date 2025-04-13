@@ -7,10 +7,10 @@ import {testCode} from "@/ai/flows/test-code";
 import {Card, CardContent, CardDescription, CardHeader, CardTitle} from "@/components/ui/card";
 import {Button} from "@/components/ui/button";
 import {Textarea} from "@/components/ui/textarea";
-import {Input} from "@/components/ui/input";
 import {Accordion, AccordionContent, AccordionItem, AccordionTrigger} from "@/components/ui/accordion";
 import {toast} from "@/hooks/use-toast";
 import {useEffect} from "react";
+import {Icons} from "@/components/icons";
 
 interface Task {
   id: string;
@@ -27,6 +27,9 @@ const DevTeamAIApp = () => {
   const [loading, setLoading] = useState(false);
   const [currentTaskIndex, setCurrentTaskIndex] = useState(0);
   const [developmentStarted, setDevelopmentStarted] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [generatedFiles, setGeneratedFiles] = useState<string[]>([]);
+  const [chatMessages, setChatMessages] = useState<string[]>([]);
 
   const handlePlanProject = async () => {
     setLoading(true);
@@ -93,6 +96,10 @@ const DevTeamAIApp = () => {
       if (!task) return;
 
       const codeResult = await generateCode({taskDescription: task.description});
+      const newFileName = `GeneratedComponent_${Date.now()}.jsx`;
+
+      setGeneratedFiles(prevFiles => [...prevFiles, newFileName]);
+      setChatMessages(prevMessages => [...prevMessages, `Generated code for task: ${task.description}`]);
 
       setTasks(prevTasks => prevTasks.map(task =>
         task.id === taskId ? {...task, code: codeResult.code, status: 'testing'} : task
@@ -115,6 +122,7 @@ const DevTeamAIApp = () => {
       if (!task?.code) return;
 
       const testResults = await testCode({code: task.code, componentName: 'GeneratedComponent'});
+      setChatMessages(prevMessages => [...prevMessages, `Tested code for task: ${task?.description}. Results: ${testResults.results}`]);
 
       setTasks(prevTasks => prevTasks.map(task =>
         task.id === taskId ? {...task, testResults: testResults.results, status: 'complete'} : task
@@ -129,16 +137,43 @@ const DevTeamAIApp = () => {
     }
   };
 
+  const handleTaskGuidance = (taskId: string) => {
+    const newTaskDescription = prompt("Please provide guidance for this task:", tasks.find(t => t.id === taskId)?.description);
+    if (newTaskDescription) {
+      setTasks(prevTasks => prevTasks.map(task =>
+        task.id === taskId ? {...task, description: newTaskDescription} : task
+      ));
+      toast({
+        title: "Task Updated",
+        description: "The task description has been updated with your guidance.",
+      });
+    }
+  };
+  const togglePause = () => {
+    setIsPaused(prev => !prev);
+  };
+
   useEffect(() => {
-    if (developmentStarted && tasks.length > 0 && currentTaskIndex < tasks.length) {
+    if (developmentStarted && tasks.length > 0 && currentTaskIndex < tasks.length && !isPaused) {
       const currentTask = tasks[currentTaskIndex];
       if (currentTask.status === 'planning') {
         handleGenerateCode(currentTask.id);
+      } else if (currentTask.status === 'testing') {
+        handleTestCode(currentTask.id);
       } else if (currentTask.status === 'complete' && currentTaskIndex < tasks.length - 1) {
         setCurrentTaskIndex(currentTaskIndex + 1);
       }
     }
-  }, [developmentStarted, tasks, currentTaskIndex]);
+  }, [developmentStarted, tasks, currentTaskIndex, isPaused]);
+
+  if (developmentStarted) {
+    return (
+      <ChatAndFiles chatMessages={chatMessages} generatedFiles={generatedFiles}
+                    isPaused={isPaused} togglePause={togglePause} tasks={tasks}
+                    handleTaskGuidance={handleTaskGuidance} handleTestCode={handleTestCode}
+                    handleGenerateCode={handleGenerateCode}/>
+    );
+  }
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-4">
@@ -196,7 +231,16 @@ const DevTeamAIApp = () => {
                         </div>
                       )}
                       {task.status === 'planning' && (
-                        <Button onClick={() => handleGenerateCode(task.id)}>Generate Code</Button>
+                        <div className="flex gap-2">
+                          <Button onClick={() => handleGenerateCode(task.id)}>Generate Code</Button>
+                          <Button onClick={() => handleTaskGuidance(task.id)}>Provide Guidance</Button>
+                        </div>
+                      )}
+                      {task.status === 'coding' && (
+                        <div className="flex gap-2">
+                          <Button onClick={() => handleTestCode(task.id)}>Test Code</Button>
+                          <Button onClick={() => handleTaskGuidance(task.id)}>Provide Guidance</Button>
+                        </div>
                       )}
                       {task.code && (
                         <>
@@ -228,6 +272,101 @@ const DevTeamAIApp = () => {
           {developmentStarted ? "Development Started" : "Start Development"}
         </Button>
       )}
+    </div>
+  );
+};
+
+const ChatAndFiles = ({chatMessages, generatedFiles, isPaused, togglePause, tasks, handleTaskGuidance, handleTestCode, handleGenerateCode}) => {
+  return (
+    <div className="flex flex-col items-center justify-center min-h-screen p-4">
+      <Card className="w-full max-w-4xl">
+        <CardHeader>
+          <CardTitle>Development in Progress</CardTitle>
+          <CardDescription>Here are the real-time updates from the AI Dev Team.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-2xl font-bold">Chat Log</h2>
+            <Button variant="outline" onClick={togglePause}>
+              {isPaused ? (
+                <>
+                  <Icons.arrowRight className="mr-2 h-4 w-4"/>
+                  Resume
+                </>
+              ) : (
+                <>
+                  <Icons.pause className="mr-2 h-4 w-4"/>
+                  Pause
+                </>
+              )}
+            </Button>
+          </div>
+          <div className="space-y-2">
+            {chatMessages.map((message, index) => (
+              <p key={index}>{message}</p>
+            ))}
+          </div>
+          <h2 className="text-2xl font-bold mt-4">Generated Files</h2>
+          <div className="space-y-2">
+            {generatedFiles.map((file, index) => (
+              <p key={index}>{file}</p>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="w-full max-w-4xl mt-8">
+        <h2 className="text-2xl font-bold">Tasks</h2>
+        <Accordion type="single" collapsible>
+          {tasks.map((task) => (
+            <AccordionItem key={task.id} value={task.id}>
+              <AccordionTrigger>
+                {task.description} - Assigned to: {task.assignee} - Status: {task.status}
+              </AccordionTrigger>
+              <AccordionContent>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>{task.description}</CardTitle>
+                    <CardDescription>
+                      Assigned to: {task.assignee} - Status: {task.status}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {task.status === 'planning' && (
+                      <div className="flex gap-2">
+                        <Button onClick={() => handleGenerateCode(task.id)}>Generate Code</Button>
+                        <Button onClick={() => handleTaskGuidance(task.id)}>Provide Guidance</Button>
+                      </div>
+                    )}
+                    {task.status === 'coding' && (
+                      <div className="flex gap-2">
+                        <Button onClick={() => handleTestCode(task.id)}>Test Code</Button>
+                        <Button onClick={() => handleTaskGuidance(task.id)}>Provide Guidance</Button>
+                      </div>
+                    )}
+                    {task.code && (
+                      <>
+                        <h3 className="text-lg font-semibold">Generated Code</h3>
+                        <pre className="whitespace-pre-wrap">
+                          {task.code}
+                        </pre>
+                      </>
+                    )}
+                    {task.testResults && (
+                      <>
+                        <h3 className="text-lg font-semibold">Test Results</h3>
+                        <pre className="whitespace-pre-wrap">
+                          {task.testResults}
+                        </pre>
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
+              </AccordionContent>
+            </AccordionItem>
+          ))}
+        </Accordion>
+      </div>
     </div>
   );
 };
