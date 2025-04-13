@@ -11,6 +11,7 @@ import {Accordion, AccordionContent, AccordionItem, AccordionTrigger} from "@/co
 import {toast} from "@/hooks/use-toast";
 import {useEffect} from "react";
 import {Icons} from "@/components/icons";
+import {ScrollArea} from "@/components/ui/scroll-area";
 
 interface Task {
   id: string;
@@ -168,10 +169,16 @@ const DevTeamAIApp = () => {
 
   if (developmentStarted) {
     return (
-      <ChatAndFiles chatMessages={chatMessages} generatedFiles={generatedFiles}
-                    isPaused={isPaused} togglePause={togglePause} tasks={tasks}
-                    handleTaskGuidance={handleTaskGuidance} handleTestCode={handleTestCode}
-                    handleGenerateCode={handleGenerateCode}/>
+      <ChatAndFiles
+        chatMessages={chatMessages}
+        generatedFiles={generatedFiles}
+        isPaused={isPaused}
+        togglePause={togglePause}
+        tasks={tasks}
+        handleTaskGuidance={handleTaskGuidance}
+        handleTestCode={handleTestCode}
+        handleGenerateCode={handleGenerateCode}
+      />
     );
   }
 
@@ -301,11 +308,21 @@ const ChatAndFiles = ({chatMessages, generatedFiles, isPaused, togglePause, task
               )}
             </Button>
           </div>
-          <div className="space-y-2">
-            {chatMessages.map((message, index) => (
-              <p key={index}>{message}</p>
-            ))}
-          </div>
+          <ScrollArea className="h-64 rounded-md border p-4">
+            <div className="space-y-2">
+              {chatMessages.map((message, index) => (
+                <div key={index} className="flex items-start gap-2">
+                  <div className="rounded-full bg-muted h-8 w-8 flex items-center justify-center">
+                    <Icons.user className="h-4 w-4 text-muted-foreground"/>
+                  </div>
+                  <div className="flex flex-col">
+                    <div className="text-sm font-medium">DevTeam AI</div>
+                    <div className="text-sm">{message}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
           <h2 className="text-2xl font-bold mt-4">Generated Files</h2>
           <div className="space-y-2">
             {generatedFiles.map((file, index) => (
@@ -361,11 +378,11 @@ const ChatAndFiles = ({chatMessages, generatedFiles, isPaused, togglePause, task
                       </>
                     )}
                   </CardContent>
-                </Card>
-              </AccordionContent>
-            </AccordionItem>
-          ))}
-        </Accordion>
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
+        </div>
       </div>
     </div>
   );
