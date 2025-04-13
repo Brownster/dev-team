@@ -31,7 +31,12 @@ const DevTeamAIApp = () => {
   const [developmentStarted, setDevelopmentStarted] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [generatedFiles, setGeneratedFiles] = useState<string[]>([]);
-  const [chatMessages, setChatMessages] = useState<string[]>([]);
+  const [chatMessages, setChatMessages] = useState<
+    {
+      message: string;
+      agent: string;
+    }[]
+  >([]);
 
   const handlePlanProject = async () => {
     setLoading(true);
@@ -44,6 +49,7 @@ const DevTeamAIApp = () => {
         status: 'review' as Task['status'], // Initial state is 'review'
       }));
       setTasks(initialTasks);
+      setChatMessages(prevMessages => [...prevMessages, { message: 'Project planning complete. Review tasks.', agent: 'Planner' }]);
     } catch (error) {
       console.error("Failed to plan project:", error);
       toast({
@@ -58,6 +64,7 @@ const DevTeamAIApp = () => {
 
   const startDevelopment = () => {
     setDevelopmentStarted(true);
+    setChatMessages(prevMessages => [...prevMessages, { message: 'Development started.', agent: 'System' }]);
   };
 
   const handleTaskApproval = (taskId: string) => {
@@ -101,7 +108,7 @@ const DevTeamAIApp = () => {
       const newFileName = `GeneratedComponent_${Date.now()}.jsx`;
 
       setGeneratedFiles(prevFiles => [...prevFiles, newFileName]);
-      setChatMessages(prevMessages => [...prevMessages, `Generated code for task: ${task.description}`]);
+      setChatMessages(prevMessages => [...prevMessages, { message: `Generated code for task: ${task.description}`, agent: 'Developer' }]);
 
       setTasks(prevTasks => prevTasks.map(task =>
         task.id === taskId ? {...task, code: codeResult.code, status: 'testing'} : task
@@ -124,11 +131,12 @@ const DevTeamAIApp = () => {
       if (!task?.code) return;
 
       const testResults = await testCode({code: task.code, componentName: 'GeneratedComponent'});
-      setChatMessages(prevMessages => [...prevMessages, `Tested code for task: ${task?.description}. Results: ${testResults.results}`]);
+      setChatMessages(prevMessages => [...prevMessages, { message: `Tested code for task: ${task?.description}. Results: ${testResults.results}`, agent: 'Tester' }]);
 
       setTasks(prevTasks => prevTasks.map(task =>
         task.id === taskId ? {...task, testResults: testResults.results, status: 'complete'} : task
       ));
+      setChatMessages(prevMessages => [...prevMessages, { message: `Task ${task?.description} completed.`, agent: 'System' }]);
     } catch (error) {
       console.error("Failed to test code:", error);
       toast({
@@ -168,7 +176,7 @@ const DevTeamAIApp = () => {
     }
   }, [developmentStarted, tasks, currentTaskIndex, isPaused]);
 
-  if (developmentStarted) {
+  const ChatAndFiles = ({chatMessages, generatedFiles, isPaused, togglePause, tasks, handleTaskGuidance, handleTestCode, handleGenerateCode}) => {
     return (
       
         <div className="flex flex-col items-center justify-center min-h-screen p-4">
@@ -202,8 +210,8 @@ const DevTeamAIApp = () => {
                         <Icons.user className="h-4 w-4 text-muted-foreground"/>
                       </div>
                       <div className="flex flex-col">
-                        <div className="text-sm font-medium">DevTeam AI</div>
-                        <div className="text-sm">{message}</div>
+                        <div className="text-sm font-medium">{message.agent}</div>
+                        <div className="text-sm">{message.message}</div>
                       </div>
                     </div>
                   ))}
@@ -273,6 +281,10 @@ const DevTeamAIApp = () => {
         </div>
       
     );
+  };
+
+  if (developmentStarted) {
+    return <ChatAndFiles chatMessages={chatMessages} generatedFiles={generatedFiles} isPaused={isPaused} togglePause={togglePause} tasks={tasks} handleTaskGuidance={handleTaskGuidance} handleTestCode={handleTestCode} handleGenerateCode={handleGenerateCode}/>
   }
 
   return (
