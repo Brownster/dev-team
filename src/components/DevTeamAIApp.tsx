@@ -38,6 +38,7 @@ const DevTeamAIApp = () => {
     }[]
   >([]);
 
+  const [allTasksCompleted, setAllTasksCompleted] = useState(false);
   const handlePlanProject = async () => {
     setLoading(true);
     try {
@@ -137,7 +138,7 @@ const DevTeamAIApp = () => {
         task.id === taskId ? {...task, testResults: testResults.results, status: 'complete'} : task
       ));
       setChatMessages(prevMessages => [...prevMessages, { message: `Task ${task?.description} completed.`, agent: 'System' }]);
-    } catch (error) {
+     } catch (error) {
       console.error("Failed to test code:", error);
       toast({
         title: "Testing Failed",
@@ -163,6 +164,31 @@ const DevTeamAIApp = () => {
     setIsPaused(prev => !prev);
   };
 
+  const getAllGeneratedCode = () => {
+    return tasks.map(task => `// Task: ${task.description}\n${task.code || ''}`).join('\n\n');
+  };
+
+  const downloadCode = () => {
+    const code = getAllGeneratedCode();
+    const blob = new Blob([code], { type: 'text/javascript' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'generated_code.jsx';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  useEffect(() => {
+    if (tasks.length > 0 && tasks.every(task => task.status === 'complete')) {
+      setAllTasksCompleted(true);
+    } else {
+      setAllTasksCompleted(false);
+    }
+  }, [tasks]);
+
   useEffect(() => {
     if (developmentStarted && tasks.length > 0 && currentTaskIndex < tasks.length && !isPaused) {
       const currentTask = tasks[currentTaskIndex];
@@ -170,13 +196,16 @@ const DevTeamAIApp = () => {
         handleGenerateCode(currentTask.id);
       } else if (currentTask.status === 'testing') {
         handleTestCode(currentTask.id);
-      } else if (currentTask.status === 'complete' && currentTaskIndex < tasks.length - 1) {
+      }
+       else if (currentTask.status === 'complete' && currentTaskIndex < tasks.length - 1) {
         setCurrentTaskIndex(currentTaskIndex + 1);
+      } else if (currentTask.status === 'complete' && currentTaskIndex === tasks.length -1){
+        setAllTasksCompleted(true);
       }
     }
   }, [developmentStarted, tasks, currentTaskIndex, isPaused]);
 
-  const ChatAndFiles = ({chatMessages, generatedFiles, isPaused, togglePause, tasks, handleTaskGuidance, handleTestCode, handleGenerateCode}) => {
+  const ChatAndFiles = ({chatMessages, generatedFiles, isPaused, togglePause, tasks, handleTaskGuidance, handleTestCode, handleGenerateCode, downloadCode, allTasksCompleted}: {chatMessages: { message: string; agent: string; }[], generatedFiles: string[], isPaused: boolean, togglePause: () => void, tasks: Task[], handleTaskGuidance: (taskId: string) => void, handleTestCode: (taskId: string) => Promise<void>, handleGenerateCode: (taskId: string) => Promise<void>, downloadCode: () => void, allTasksCompleted: boolean}) => {
     return (
       
         <div className="flex flex-col items-center justify-center min-h-screen p-4">
@@ -274,9 +303,15 @@ const DevTeamAIApp = () => {
                       </CardContent>
                     </Card>
                   </AccordionContent>
-                </AccordionItem>
+                 </AccordionItem>
               ))}
             </Accordion>
+             {allTasksCompleted && (
+              <Button onClick={downloadCode}>
+                <Icons.download className="mr-2 h-4 w-4"/>
+                Download Code
+              </Button>
+            )}
           </div>
         </div>
       
@@ -284,7 +319,7 @@ const DevTeamAIApp = () => {
   };
 
   if (developmentStarted) {
-    return <ChatAndFiles chatMessages={chatMessages} generatedFiles={generatedFiles} isPaused={isPaused} togglePause={togglePause} tasks={tasks} handleTaskGuidance={handleTaskGuidance} handleTestCode={handleTestCode} handleGenerateCode={handleGenerateCode}/>
+    return <ChatAndFiles chatMessages={chatMessages} generatedFiles={generatedFiles} isPaused={isPaused} togglePause={togglePause} tasks={tasks} handleTaskGuidance={handleTaskGuidance} handleTestCode={handleTestCode} handleGenerateCode={handleGenerateCode} downloadCode={downloadCode} allTasksCompleted={allTasksCompleted}/>
   }
 
   return (
