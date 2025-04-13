@@ -65,6 +65,14 @@ const DevTeamAIApp = () => {
     });
   };
 
+  const handleApproveAllTasks = () => {
+    setTasks(prevTasks => prevTasks.map(task => ({...task, status: 'planning'})));
+    toast({
+      title: "All Tasks Approved",
+      description: "All tasks have been approved and are ready for development.",
+    });
+  };
+
   const handleTaskRejection = (taskId: string, feedback: string) => {
     // Implement logic to handle task rejection and feedback
     console.log(`Task ${taskId} rejected with feedback: ${feedback}`);
@@ -155,7 +163,12 @@ const DevTeamAIApp = () => {
 
       {tasks.length > 0 && (
         <div className="w-full max-w-4xl mt-8">
-          <h2 className="text-2xl font-bold mb-4">Development Tasks</h2>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-2xl font-bold">Development Tasks</h2>
+            {tasks.some(task => task.status === 'review') && (
+              <Button onClick={handleApproveAllTasks}>Approve All Tasks</Button>
+            )}
+          </div>
           <Accordion type="single" collapsible>
             {tasks.map((task) => (
               <AccordionItem key={task.id} value={task.id}>
